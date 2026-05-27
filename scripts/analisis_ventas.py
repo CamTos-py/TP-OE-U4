@@ -2,46 +2,80 @@
 # ==============================================================
 # Script de Análisis de Ventas
 # Autor: Camila Tosti (Rol: Paco - P2)
-# Descripción: Analiza el dataset de ventas para calcular
-# indicadores clave y generar visualizaciones.
+# Descripción: Analiza el dataset de ventas usando solo
+# estructuras básicas de Python (listas, diccionarios, csv).
 # ==============================================================
 
-import pandas as pd
+import csv
 import matplotlib.pyplot as plt
 
 # --- CARGA DE DATOS ---
-# Usamos ruta relativa para garantizar reproducibilidad en cualquier entorno
-df = pd.read_csv("datos/ventas.csv")
 
-# --- INDICADORES ---
-# Calculamos el ingreso total por fila (precio x cantidad)
-df["ingreso"] = df["cantidad"] * df["precio"]
+ventas = []
+with open("datos/ventas.csv", "r") as archivo:
+    lector = csv.DictReader(archivo)
+    for fila in lector:
+        ventas.append({
+            "producto": fila["producto"],
+            "cantidad": int(fila["cantidad"]),
+            "precio": int(fila["precio"]),
+            "fecha": fila["fecha"]
+        })
 
-# Ventas totales globales
-total_ventas = df["ingreso"].sum()
-print(f"Ventas totales: ${total_ventas:,.0f}")
+# --- INDICADOR 1: VENTAS TOTALES ---
 
-# Producto más vendido (por cantidad)
-mas_vendido = df.groupby("producto")["cantidad"].sum().idxmax()
-print(f"Producto más vendido: {mas_vendido}")
+total_ventas = 0
+for venta in ventas:
+    total_ventas = total_ventas + (venta["cantidad"] * venta["precio"])
 
-# Ventas por mes
-df["fecha"] = pd.to_datetime(df["fecha"])
-df["mes"] = df["fecha"].dt.to_period("M")
-ventas_por_mes = df.groupby("mes")["ingreso"].sum()
+print("Ventas totales: $" + str(total_ventas))
+
+# --- INDICADOR 2: PRODUCTO MÁS VENDIDO ---
+
+cantidades_por_producto = {}
+for venta in ventas:
+    producto = venta["producto"]
+    if producto in cantidades_por_producto:
+        cantidades_por_producto[producto] = cantidades_por_producto[producto] + venta["cantidad"]
+    else:
+        cantidades_por_producto[producto] = venta["cantidad"]
+
+producto_mas_vendido = ""
+mayor_cantidad = 0
+for producto, cantidad in cantidades_por_producto.items():
+    if cantidad > mayor_cantidad:
+        mayor_cantidad = cantidad
+        producto_mas_vendido = producto
+
+print("Producto más vendido: " + producto_mas_vendido + " (" + str(mayor_cantidad) + " unidades)")
+
+# --- INDICADOR 3: VENTAS POR MES ---
+
+ingresos_por_mes = {}
+for venta in ventas:
+    mes = venta["fecha"][:7]
+    ingreso = venta["cantidad"] * venta["precio"]
+    if mes in ingresos_por_mes:
+        ingresos_por_mes[mes] = ingresos_por_mes[mes] + ingreso
+    else:
+        ingresos_por_mes[mes] = ingreso
+
 print("\nVentas por mes:")
-print(ventas_por_mes)
+for mes, ingreso in ingresos_por_mes.items():
+    print("  " + mes + ": $" + str(ingreso))
 
 # --- GRÁFICO ---
-# Graficamos la evolución de ventas mensuales para visualizar tendencias
-ventas_por_mes.plot(kind="bar", color="steelblue", figsize=(8,5))
+meses = list(ingresos_por_mes.keys())
+ingresos = list(ingresos_por_mes.values())
+
+plt.figure(figsize=(8, 5))
+plt.bar(meses, ingresos, color="steelblue")
 plt.title("Evolución de Ventas por Mes")
 plt.xlabel("Mes")
 plt.ylabel("Ingreso ($)")
 plt.xticks(rotation=45)
 plt.tight_layout()
 
-# Guardamos el gráfico en /resultados
 plt.savefig("resultados/grafico_ventas.png")
 plt.show()
 print("\nGráfico guardado en resultados/grafico_ventas.png")
